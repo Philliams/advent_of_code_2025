@@ -9,7 +9,7 @@ open("./day1/input.txt", "r") do io
 
         if line[1] == 'R'
             newpos = pos + delta
-            count += floor(Int64, newpos/100) - floor(Int64, pos/100)
+            count += floor(Int64, newpos / 100) - floor(Int64, pos / 100)
         else
             newpos = pos - delta
             count += ceil(Int64, pos / 100) - ceil(Int64, newpos / 100)
