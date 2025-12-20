@@ -7,184 +7,123 @@ function parse_input(s)
     return parsed
 end
 
-function overlaps_inclusive(a, b)
+function flood_fill(start_pos, raster_map)
 
-    a = [min(a[1], a[2]), max(a[1], a[2])]
-    b = [min(b[1], b[2]), max(b[1], b[2])]
+    stack = [start_pos]
 
-    if a[2] < b[1]
-        return false
-    elseif a[1] > b[2]
-        return false
-    else
-        return true
-    end
-end
-
-function segments_overlap_inclusive(a, b, c, d)
-
-    v1 = a[1] == b[1]
-    v2 = c[1] == d[1]
-
-    if v1 & v2 # both vertical
-        return (
-            (a[1] == c[1])
-            & overlaps_inclusive([a[2], b[2]], [c[2], d[2]])
-        )
-    elseif v1 # ab vertical, cd horizontal
-        return (
-            overlaps_inclusive([a[1], a[1]], [c[1], d[1]]) # x value of AB overlaps with cd range
-            & overlaps_inclusive([a[2], b[2]], [c[2], c[2]]) # y value of cd overlaps with ab range
-        )
-    elseif v2 # ab horizontal, cd vertical
-        return (
-            overlaps_inclusive([a[2], a[2]], [c[2], d[2]]) # y value of AB overlaps with cd range
-            & overlaps_inclusive([a[1], b[1]], [c[1], c[1]]) # x value of cd overlaps with ab range
-        )
-    else # both horizontal
-        return (
-            (a[2] == c[2])
-            & overlaps_inclusive([a[1], b[1]], [c[1], d[1]])
-        )
-    end
-
-end
-
-function overlaps_exclusive(a, b)
-    if a[2] <= b[1]
-        return false
-    elseif a[1] >= b[2]
-        return false
-    else
-        return true
-    end
-end
-
-function segments_overlap_exclusive(a, b, c, d)
-
-    v1 = a[1] == b[1]
-    v2 = c[1] == d[1]
-
-    if v1 & v2 # both vertical
-        return false
-    elseif v1 # ab vertical, cd horizontal
-        return (
-            overlaps_exclusive([a[1], a[1]], [c[1], d[1]]) # x value of AB overlaps with cd range
-            & overlaps_exclusive([a[2], b[2]], [c[2], c[2]]) # y value of cd overlaps with ab range
-        )
-    elseif v2 # ab horizontal, cd vertical
-        return (
-            overlaps_exclusive([a[2], a[2]], [c[2], d[2]]) # y value of AB overlaps with cd range
-            & overlaps_exclusive([a[1], b[1]], [c[1], c[1]]) # x value of cd overlaps with ab range
-        )
-    else # both horizontal
-        return false
-    end
-
-end
-
-function point_in_shape(edges, v, corners)
-    if v in corners
-        # println("CORNER")
-        return true
-    end
-
-    count = 0
-    v0 = [-1, v[2]]
-    for e in edges
-        if segments_overlap_inclusive(e[1], e[2], v, v)
-            # println("ON EDGE, $e")
-            return true # if it's on a edge, it's in the shape
-        end
-
-        if segments_overlap_exclusive(e[1], e[2], v0, v)
-            count += 1 # point-in-polygon (PIP) algorithm
+    while length(stack) > 0
+        pos = popfirst!(stack)
+        try
+            if raster_map[pos[1], pos[2]] == 0
+                
+                    raster_map[pos[1], pos[2]] = 2
+                    append!(stack, [
+                        pos .+ [0, 1],
+                        pos .- [0, 1],
+                        pos .+ [1, 0],
+                        pos .- [1, 0],
+                    ])
+            end
+        catch e
+           # ignore 
         end
     end
-    println("count = $count")
-    return count % 2 == 1
 end
 
-function check_rect_edges(a, b, c, d, edges)
-    for e in edges
-        flags = [
-            segments_overlap_inclusive(a, b, e[1], e[2]) & !(segments_overlap_inclusive(e[1], e[2], a, a) | segments_overlap_inclusive(e[1], e[2], b, b)),
-            segments_overlap_inclusive(b, c, e[1], e[2]) & !(segments_overlap_inclusive(e[1], e[2], b, b) | segments_overlap_inclusive(e[1], e[2], c, c)),
-            segments_overlap_inclusive(c, d, e[1], e[2]) & !(segments_overlap_inclusive(e[1], e[2], c, c) | segments_overlap_inclusive(e[1], e[2], d, d)),
-            segments_overlap_inclusive(d, a, e[1], e[2]) & !(segments_overlap_inclusive(e[1], e[2], d, d) | segments_overlap_inclusive(e[1], e[2], a, a)),
-        ]
-        if reduce(|, flags)
-            return false
-        end
+function raster(pos)
+    x = Set([e[1] for e in pos])
+    y = Set([e[2] for e in pos])
 
+    xmap = Dict()
+    ymap = Dict()
+
+    for (i, x) in enumerate(sort(collect(x)))
+        xmap[x] = 2 * i + 1
     end
-    return true
-end
+    for (i, y) in enumerate(sort(collect(y)))
+        ymap[y] = 2 * i + 1
+    end
 
-function get_largest_rectangle(pos)
+    raster_map = zeros(Int16, 2 * (length(x) + 1) + 1, 2 * (length(y) + 1) + 1)
 
-    known_corners = Set(pos)
     edges = [(pos[end], pos[1])]
     for i in 1:length(pos) - 1
         append!(edges, [(pos[i], pos[i+1])])
     end
 
-    check = v -> point_in_shape(edges, v, known_corners)
+    for e in edges
+        # if vertical
+        # println(e)
+        if e[1][1] == e[2][1]
+            idx = xmap[e[1][1]]
+            y1 = ymap[e[1][2]]
+            y2 = ymap[e[2][2]]
+            y1, y2 = sort([y1, y2])
 
-    a = [2, 6]
-    c = [7, 5]
-    b = [a[1], c[2]]
-    d = [c[1], a[2]]
-    
-    println("$a $(check(a))")
-    println("$b $(check(b))")
-    println("$c $(check(c))")
-    println("$d $(check(d))")
-    println(check_rect_edges(a, b, c, d, edges))
+            for idy in y1:y2
+                raster_map[idx, idy] = 1
+            end
+        # if horizontal
+        else 
+            idy = ymap[e[1][2]]
+            x1 = xmap[e[1][1]]
+            x2 = xmap[e[2][1]]
+            x1, x2 = sort([x1, x2])
+            for idx in x1:x2
+                raster_map[idx, idy] = 1
+            end
+        end
+    end
 
-    # max_ = 0
-    # for i in 1:length(pos)
-    #     for j in i+1:length(pos)
+    start_pos = [
+        xmap[pos[1][1]],
+        ymap[pos[1][2]]
+    ]
 
-    #         a = pos[i]
-    #         b = [pos[i][1], pos[j][2]]
-    #         c = pos[j]
-    #         d = [pos[j][1], pos[i][2]]
 
-    #         # check if all vertices are inside square
-    #         check = v -> point_in_shape(edges, v, known_corners)
-    #         all_inside = (
-    #             check(a)
-    #             & check(b)
-    #             & check(c)
-    #             & check(d)
-    #         )
+    start_pos = [1, 1]
 
-    #         # check if any of the rectangle edges cross edges
-    #         all_edges = check_rect_edges(a, b, c, d, edges)
-    #         # println("=======================")
-    #         # println("$a -> $b -> $c -> $d, $all_inside, $all_edges")
-    #         # println("$(check(a)), $(check(b)), $(check(c)), $(check(d))")
+    flood_fill(start_pos, raster_map)
+    replace!(raster_map, 0 => 1)
+    replace!(raster_map, 2 => 0)
 
-    #         if all_inside & all_edges
-    #             # println("valid, $a, $c")
-    #             max_ = max(max_, reduce(*, abs.(a .- c) .+ 1))
-    #         else
-    #             # println("invalid, $a ($(check(a))), $b ($(check(b))), $c ($(check(c))), $d ($(check(d)))")
-    #         end
+    return raster_map, xmap, ymap
 
-    #     end
-    # end
+end
 
-    # return max_
-    
+function get_largest_rectangle(pos, raster_map, xmap, ymap)
+    # display(transpose(raster_map))
+    area = 0
+    for i in 1:length(pos)
+        for j in i+1:length(pos)
+            a = pos[i]
+            b = pos[j]
+
+            idx1 = xmap[a[1]]
+            idx2 = xmap[b[1]]
+            idy1 = ymap[a[2]]
+            idy2 = ymap[b[2]]
+
+            idx1, idx2 = sort([idx1, idx2])
+            idy1, idy2 = sort([idy1, idy2])
+
+            rect = raster_map[idx1:idx2, idy1:idy2]
+
+            check = reduce(&, rect .> 0)
+            if check
+                area = max(area, reduce(*, abs.(a .- b) .+ 1))
+            end
+
+        end
+    end
+    return area
 end
 
 
-open("./day9/debug.txt", "r") do io
+open("./day9/input.txt", "r") do io
     s::String = read(io, String)
     pos = parse_input(s)
-    area = get_largest_rectangle(pos)
+    raster_map, xmap, ymap = raster(pos)
+    area = get_largest_rectangle(pos, raster_map, xmap, ymap)
     println(area)
-
 end
