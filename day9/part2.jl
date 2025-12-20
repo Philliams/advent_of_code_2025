@@ -97,31 +97,26 @@ function point_in_shape(edges, v, corners)
             return true # if it's on a edge, it's in the shape
         end
 
-        if segments_overlap_inclusive(e[1], e[2], v0, v)
+        if segments_overlap_exclusive(e[1], e[2], v0, v)
             count += 1 # point-in-polygon (PIP) algorithm
         end
     end
-    # println(count)
+    println("count = $count")
     return count % 2 == 1
 end
 
 function check_rect_edges(a, b, c, d, edges)
     for e in edges
-        if segments_overlap_exclusive(a, b, e[1], e[2])
+        flags = [
+            segments_overlap_inclusive(a, b, e[1], e[2]) & !(segments_overlap_inclusive(e[1], e[2], a, a) | segments_overlap_inclusive(e[1], e[2], b, b)),
+            segments_overlap_inclusive(b, c, e[1], e[2]) & !(segments_overlap_inclusive(e[1], e[2], b, b) | segments_overlap_inclusive(e[1], e[2], c, c)),
+            segments_overlap_inclusive(c, d, e[1], e[2]) & !(segments_overlap_inclusive(e[1], e[2], c, c) | segments_overlap_inclusive(e[1], e[2], d, d)),
+            segments_overlap_inclusive(d, a, e[1], e[2]) & !(segments_overlap_inclusive(e[1], e[2], d, d) | segments_overlap_inclusive(e[1], e[2], a, a)),
+        ]
+        if reduce(|, flags)
             return false
         end
 
-        if segments_overlap_exclusive(b, c, e[1], e[2])
-            return false
-        end
-            
-        if segments_overlap_exclusive(c, d, e[1], e[2])
-            return false
-        end
-
-        if segments_overlap_exclusive(d, a, e[1], e[2])
-            return false
-        end
     end
     return true
 end
@@ -136,8 +131,8 @@ function get_largest_rectangle(pos)
 
     check = v -> point_in_shape(edges, v, known_corners)
 
-    a = [2, 3]
-    c = [9, 5]
+    a = [2, 6]
+    c = [7, 5]
     b = [a[1], c[2]]
     d = [c[1], a[2]]
     
@@ -146,9 +141,7 @@ function get_largest_rectangle(pos)
     println("$c $(check(c))")
     println("$d $(check(d))")
     println(check_rect_edges(a, b, c, d, edges))
-    # vec = [10, 5]
-    # res = check(vec)
-    # # println("$res, $vec")
+
     # max_ = 0
     # for i in 1:length(pos)
     #     for j in i+1:length(pos)
@@ -188,7 +181,7 @@ function get_largest_rectangle(pos)
 end
 
 
-open("./day9/sample.txt", "r") do io
+open("./day9/debug.txt", "r") do io
     s::String = read(io, String)
     pos = parse_input(s)
     area = get_largest_rectangle(pos)
