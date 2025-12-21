@@ -38,11 +38,26 @@ function build_graph(edges)
 end
 
 function count_paths(G)
-    graph = build_graph(G)  
-    lookup = Dict("you" => 1)
+    graph = build_graph(G)
 
-    count = recurse_count_paths(graph, lookup, "out")
-    return count
+    # count all the paths from svr -> dac, then dac -> fft, then fft -> out
+    lookup = Dict("svr" => 1)
+    a1 = recurse_count_paths(graph, lookup, "dac")
+    lookup = Dict("dac" => 1)
+    a2 = recurse_count_paths(graph, lookup, "fft")
+    lookup = Dict("fft" => 1)
+    a3 = recurse_count_paths(graph, lookup, "out")
+
+    # count all the pats from svr -> fft, then fft -> dac, then dac -> out
+    lookup = Dict("svr" => 1)
+    b1 = recurse_count_paths(graph, lookup, "fft")
+    lookup = Dict("fft" => 1)
+    b2 = recurse_count_paths(graph, lookup, "dac")
+    lookup = Dict("dac" => 1)
+    b3 = recurse_count_paths(graph, lookup, "out")
+
+    return a1 * a2 * a3 + b1 * b2 * b3
+
 end
 
 function recurse_count_paths(G, lookup, n)
